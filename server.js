@@ -8,29 +8,45 @@ app.use(express.json());
 
 const API_KEY = 'sk_test_YRAu-ZzhI8jVskPb2zmIRnZPyMyhoexo1UnQTrnTr0c';
 
+// 1. Health Check - Visit https://onrender.com to see this
+app.get('/', (req, res) => {
+    res.send("Proxy is online and ready!");
+});
+
+// 2. The Start Session Endpoint
 app.post('/start-session', async (req, res) => {
     try {
-        // First, check if you already have an active session to avoid rate limits
-        const sessions = await axios.get('https://engine.hyperbeam.com/v0/vm', {
+        console.log("Request received to start session...");
+
+        // Check for existing sessions first to avoid 429 Rate Limits
+        const activeSessions = await axios.get('https://hyperbeam.com', {
             headers: { 'Authorization': `Bearer ${API_KEY}` }
         });
 
-        if (sessions.data && sessions.data.length > 0) {
-            // Give back the first active session found
-            return res.json(sessions.data[0]);
+        // If a VM is already running, just return that one
+        if (activeSessions.data && activeSessions.data.length > 0) {
+            console.log("Existing session found. Reusing...");
+            return res.json(activeSessions.data[0]); 
         }
 
-        // If no active sessions, start a new one
-        const response = await axios.post('https://engine.hyperbeam.com/v0/vm', {
+        // If no VM exists, create a brand new one
+        console.log("No existing sessions. Creating new VM...");
+        const response = await axios.post('https://hyperbeam.com', {
             start_url: "https://google.com",
             kiosk: false
         }, {
             headers: { 'Authorization': `Bearer ${API_KEY}` }
         });
+
         res.json(response.data);
     } catch (error) {
+        console.error("Hyperbeam Error:", error.response?.data || error.message);
         res.status(error.response?.status || 500).json(error.response?.data || { message: error.message });
     }
 });
 
-app.listen(process.env.PORT || 8080);
+const PORT = process.env.PORT || 8080;
+app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
+});
+
