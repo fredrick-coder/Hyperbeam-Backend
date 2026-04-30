@@ -8,29 +8,24 @@ app.use(express.json());
 
 const API_KEY = 'sk_test_YRAu-ZzhI8jVskPb2zmIRnZPyMyhoexo1UnQTrnTr0c';
 
-// 1. Health Check - Visit https://onrender.com to see this
-app.get('/', (req, res) => {
-    res.send("Proxy is online and ready!");
-});
+// Health check to confirm server is awake
+app.get('/', (req, res) => res.send("Proxy is online and ready!"));
 
-// 2. The Start Session Endpoint
 app.post('/start-session', async (req, res) => {
     try {
-        console.log("Request received to start session...");
-
-        // Check for existing sessions first to avoid 429 Rate Limits
-        const activeSessions = await axios.get('https://hyperbeam.com', {
+        // 1. Check for existing sessions
+        const active = await axios.get('https://hyperbeam.com', {
             headers: { 'Authorization': `Bearer ${API_KEY}` }
         });
 
-        // If a VM is already running, just return that one
-        if (activeSessions.data && activeSessions.data.length > 0) {
-            console.log("Existing session found. Reusing...");
-            return res.json(activeSessions.data[0]); 
+        // 2. If a session exists, send the FIRST one as a single object
+        if (active.data && active.data.length > 0) {
+            console.log("Existing session found. Sending to client...");
+            return res.json(active.data[0]); 
         }
 
-        // If no VM exists, create a brand new one
-        console.log("No existing sessions. Creating new VM...");
+        // 3. Otherwise, create a new one
+        console.log("Creating new VM...");
         const response = await axios.post('https://hyperbeam.com', {
             start_url: "https://google.com",
             kiosk: false
@@ -40,13 +35,11 @@ app.post('/start-session', async (req, res) => {
 
         res.json(response.data);
     } catch (error) {
-        console.error("Hyperbeam Error:", error.response?.data || error.message);
+        console.error("Error:", error.response?.data || error.message);
         res.status(error.response?.status || 500).json(error.response?.data || { message: error.message });
     }
 });
 
 const PORT = process.env.PORT || 8080;
-app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
-});
+app.listen(PORT, () => console.log(`Server live on port ${PORT}`));
 
